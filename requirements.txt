@@ -1,4 +1,5 @@
 Flask
+Flask-RESTful
 requests
 beautifulsoup4
 lxml

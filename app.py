@@ -1,6 +1,7 @@
 # app.py
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, url_for
+from flask_restful import Resource, Api
 from scraper import (
     scrape_sunday_homily,
     scrape_daily_readings,
@@ -9,8 +10,10 @@ from scraper import (
 )
 from storage import update_data, get_data
 from datetime import datetime
+import logging
 
 app = Flask(__name__)
+api = Api(app)
 
 def is_data_stale(data_date, interval='daily'):
     now = datetime.utcnow()
@@ -27,65 +30,108 @@ def is_data_stale(data_date, interval='daily'):
         # Default to data being stale
         return True
 
-@app.route('/api/sunday-homily', methods=['GET'])
-def get_sunday_homily():
-    data = get_data('sunday_homily')
-    if not data or is_data_stale(data['date'], interval='weekly'):
-        homily = scrape_sunday_homily()
-        update_data('sunday_homily', homily)
-    else:
-        homily = data['value']
-    return jsonify({'homily': homily})
+class SundayHomily(Resource):
+    def get(self):
+        data = get_data('sunday_homily')
+        if not data or is_data_stale(data['date'], interval='weekly'):
+            homily = scrape_sunday_homily()
+            if homily:
+                update_data('sunday_homily', homily)
+            else:
+                return {'error': 'Unable to fetch Sunday Homily at this time.'}, 503
+        else:
+            homily = data['value']
+        return {'homily': homily}
 
-@app.route('/api/daily-readings', methods=['GET'])
-def get_daily_readings():
-    data = get_data('daily_readings')
-    if not data or is_data_stale(data['date'], interval='daily'):
-        readings = scrape_daily_readings()
-        update_data('daily_readings', readings)
-    else:
-        readings = data['value']
-    return jsonify({'readings': readings})
+class DailyReadings(Resource):
+    def get(self):
+        lang = request.args.get('lang', 'en')
+        key = 'daily_readings' if lang == 'en' else 'daily_readings_irish'
+        data = get_data(key)
+        if not data or is_data_stale(data['date'], interval='daily'):
+            readings = scrape_daily_readings(lang=lang)
+            if readings:
+                update_data(key, readings)
+            else:
+                return {'error': 'Unable to fetch Daily Readings at this time.'}, 503
+        else:
+            readings = data['value']
+        return {'readings': readings}
 
-@app.route('/api/daily-readings/irish', methods=['GET'])
-def get_daily_readings_irish():
-    data = get_data('daily_readings_irish')
-    if not data or is_data_stale(data['date'], interval='daily'):
-        readings = scrape_daily_readings(lang='ga')
-        update_data('daily_readings_irish', readings)
-    else:
-        readings = data['value']
-    return jsonify({'readings': readings})
+class SundayReadings(Resource):
+    def get(self):
+        lang = request.args.get('lang', 'en')
+        key = 'sunday_readings' if lang == 'en' else 'sunday_readings_irish'
+        data = get_data(key)
+        if not data or is_data_stale(data['date'], interval='weekly'):
+            readings = scrape_sunday_readings(lang=lang)
+            if readings:
+                update_data(key, readings)
+            else:
+                return {'error': 'Unable to fetch Sunday Readings at this time.'}, 503
+        else:
+            readings = data['value']
+        return {'readings': readings}
 
-@app.route('/api/sunday-readings', methods=['GET'])
-def get_sunday_readings():
-    data = get_data('sunday_readings')
-    if not data or is_data_stale(data['date'], interval='weekly'):
-        readings = scrape_sunday_readings()
-        update_data('sunday_readings', readings)
-    else:
-        readings = data['value']
-    return jsonify({'readings': readings})
+class SaintOfTheDay(Resource):
+    def get(self):
+        data = get_data('saint_of_the_day')
+        if not data or is_data_stale(data['date'], interval='daily'):
+            saint = scrape_saint_of_the_day()
+            if saint:
+                update_data('saint_of_the_day', saint)
+            else:
+                return {'error': 'Unable to fetch Saint of the Day at this time.'}, 503
+        else:
+            saint = data['value']
+        return {'saint': saint}
 
-@app.route('/api/sunday-readings/irish', methods=['GET'])
-def get_sunday_readings_irish():
-    data = get_data('sunday_readings_irish')
-    if not data or is_data_stale(data['date'], interval='weekly'):
-        readings = scrape_sunday_readings(lang='ga')
-        update_data('sunday_readings_irish', readings)
-    else:
-        readings = data['value']
-    return jsonify({'readings': readings})
+class Root(Resource):
+    def get(self):
+        endpoints = {
+            'sunday_homily': {
+                'url': url_for('sundayhomily', _external=True),
+                'methods': ['GET'],
+                'description': 'Get the Sunday Homily.'
+            },
+            'daily_readings': {
+                'url': url_for('dailyreadings', _external=True),
+                'methods': ['GET'],
+                'description': 'Get the Daily Readings.',
+                'params': {
+                    'lang': {
+                        'type': 'string',
+                        'description': 'Language code ("en" for English, "ga" for Irish).',
+                        'default': 'en'
+                    }
+                }
+            },
+            'sunday_readings': {
+                'url': url_for('sundayreadings', _external=True),
+                'methods': ['GET'],
+                'description': 'Get the Sunday Readings.',
+                'params': {
+                    'lang': {
+                        'type': 'string',
+                        'description': 'Language code ("en" for English, "ga" for Irish).',
+                        'default': 'en'
+                    }
+                }
+            },
+            'saint_of_the_day': {
+                'url': url_for('saintoftheday', _external=True),
+                'methods': ['GET'],
+                'description': 'Get information about the Saint of the Day.'
+            }
+        }
+        return {'api_endpoints': endpoints}
 
-@app.route('/api/saint-of-the-day', methods=['GET'])
-def get_saint_of_the_day():
-    data = get_data('saint_of_the_day')
-    if not data or is_data_stale(data['date'], interval='daily'):
-        saint = scrape_saint_of_the_day()
-        update_data('saint_of_the_day', saint)
-    else:
-        saint = data['value']
-    return jsonify({'saint': saint})
+# Registering resources with endpoints
+api.add_resource(Root, '/')
+api.add_resource(SundayHomily, '/api/sunday-homily')
+api.add_resource(DailyReadings, '/api/daily-readings')
+api.add_resource(SundayReadings, '/api/sunday-readings')
+api.add_resource(SaintOfTheDay, '/api/saint-of-the-day')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

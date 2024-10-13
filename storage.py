@@ -3,6 +3,10 @@
 import json
 from datetime import datetime
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Use the persistent data directory
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
@@ -17,10 +21,16 @@ def load_data():
             return json.load(f)
     except FileNotFoundError:
         return {}
+    except json.JSONDecodeError as e:
+        logging.error(f"Error decoding JSON data: {e}")
+        return {}
 
 def save_data(data):
-    with open(DATA_FILE, 'w') as f:
-        json.dump(data, f, indent=4)
+    try:
+        with open(DATA_FILE, 'w') as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:
+        logging.error(f"Error saving data to {DATA_FILE}: {e}")
 
 def update_data(key, value):
     data = load_data()
