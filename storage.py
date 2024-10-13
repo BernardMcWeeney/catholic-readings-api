@@ -2,8 +2,14 @@
 
 import json
 from datetime import datetime
+import os
 
-DATA_FILE = 'data.json'
+# Use the persistent data directory
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+DATA_FILE = os.path.join(DATA_DIR, 'data.json')
 
 def load_data():
     try:
