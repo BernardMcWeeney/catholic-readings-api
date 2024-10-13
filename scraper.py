@@ -19,13 +19,13 @@ def scrape_sunday_homily():
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'lxml')
 
-        # Extract the homily content
-        content_div = soup.find('div', class_='entry-content')
+        # Find the main content container
+        content_div = soup.find('div', class_='article', id='post-content')
         if content_div:
             homily = content_div.get_text(separator='\n', strip=True)
             return homily
         else:
-            logging.error('Homily content not found in the page.')
+            logging.error('Sunday homily content not found in the page.')
             return None
     except Exception as e:
         logging.error(f"Error scraping Sunday Homily: {e}")
@@ -42,8 +42,8 @@ def scrape_daily_readings(lang='en', feature='today'):
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'lxml')
 
-        # Extract the readings content
-        content_div = soup.find('div', class_='entry-content')
+        # Find the main content container
+        content_div = soup.find('div', class_='article', id='post-content')
         if content_div:
             readings = content_div.get_text(separator='\n', strip=True)
             return readings
@@ -55,8 +55,6 @@ def scrape_daily_readings(lang='en', feature='today'):
         return None
 
 def scrape_sunday_readings(lang='en'):
-    # Since Sunday readings are available one week in advance,
-    # we can store the readings with the date
     return scrape_daily_readings(lang=lang, feature='sunday')
 
 def scrape_saint_of_the_day():
@@ -66,14 +64,33 @@ def scrape_saint_of_the_day():
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'lxml')
 
-        # Extract the saint of the day content
-        content_div = soup.find('div', class_='article', id='post-content')
+        # Find the main article container
+        article_div = soup.find('div', class_='article softd_single')
+        if not article_div:
+            logging.error('Article container not found.')
+            return None
+
+        # Extract the title
+        title_div = article_div.find('div', id='softd_title')
+        if title_div:
+            title = title_div.get_text(separator='\n', strip=True)
+        else:
+            title = 'Saint of the Day'
+
+        # Extract the content
+        content_div = article_div.find('div', id='softd-content')
         if content_div:
-            saint = content_div.get_text(separator='\n', strip=True)
-            return saint
+            # Remove unwanted elements like scripts or styles
+            for unwanted in content_div(['script', 'style']):
+                unwanted.extract()
+            content = content_div.get_text(separator='\n', strip=True)
         else:
             logging.error('Saint of the day content not found in the page.')
             return None
+
+        # Combine the title and content
+        saint_info = f"{title}\n\n{content}"
+        return saint_info
     except Exception as e:
         logging.error(f"Error scraping Saint of the Day: {e}")
         return None

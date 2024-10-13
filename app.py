@@ -2,6 +2,8 @@
 
 from flask import Flask, jsonify, request, url_for
 from flask_restful import Resource, Api
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from scraper import (
     scrape_sunday_homily,
     scrape_daily_readings,
@@ -12,8 +14,18 @@ from storage import update_data, get_data
 from datetime import datetime
 import logging
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
 app = Flask(__name__)
 api = Api(app)
+
+# Initialize Limiter for rate limiting
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["100 per hour"]
+)
 
 def is_data_stale(data_date, interval='daily'):
     now = datetime.utcnow()
@@ -31,6 +43,8 @@ def is_data_stale(data_date, interval='daily'):
         return True
 
 class SundayHomily(Resource):
+    decorators = [limiter.limit("60 per hour")]
+
     def get(self):
         data = get_data('sunday_homily')
         if not data or is_data_stale(data['date'], interval='weekly'):
@@ -44,8 +58,13 @@ class SundayHomily(Resource):
         return {'homily': homily}
 
 class DailyReadings(Resource):
+    decorators = [limiter.limit("60 per hour")]
+
     def get(self):
         lang = request.args.get('lang', 'en')
+        if lang not in ['en', 'ga']:
+            return {'error': 'Invalid language code. Use "en" for English or "ga" for Irish.'}, 400
+
         key = 'daily_readings' if lang == 'en' else 'daily_readings_irish'
         data = get_data(key)
         if not data or is_data_stale(data['date'], interval='daily'):
@@ -59,8 +78,13 @@ class DailyReadings(Resource):
         return {'readings': readings}
 
 class SundayReadings(Resource):
+    decorators = [limiter.limit("60 per hour")]
+
     def get(self):
         lang = request.args.get('lang', 'en')
+        if lang not in ['en', 'ga']:
+            return {'error': 'Invalid language code. Use "en" for English or "ga" for Irish.'}, 400
+
         key = 'sunday_readings' if lang == 'en' else 'sunday_readings_irish'
         data = get_data(key)
         if not data or is_data_stale(data['date'], interval='weekly'):
@@ -74,6 +98,8 @@ class SundayReadings(Resource):
         return {'readings': readings}
 
 class SaintOfTheDay(Resource):
+    decorators = [limiter.limit("60 per hour")]
+
     def get(self):
         data = get_data('saint_of_the_day')
         if not data or is_data_stale(data['date'], interval='daily'):
@@ -132,6 +158,15 @@ api.add_resource(SundayHomily, '/api/sunday-homily')
 api.add_resource(DailyReadings, '/api/daily-readings')
 api.add_resource(SundayReadings, '/api/sunday-readings')
 api.add_resource(SaintOfTheDay, '/api/saint-of-the-day')
+
+# Error handlers
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({'error': 'Resource not found'}), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
