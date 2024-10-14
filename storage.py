@@ -1,50 +1,44 @@
 # storage.py
-import json
+
 import time
-import os
+import json
 
-DATA_FILE = 'data.json'
+# The redis_client is imported from app.py to ensure the same instance is used
+from app import redis_client
 
-def save_data(key, data):
-    """Save data under the given key to a JSON file with a timestamp."""
-    try:
-        with open(DATA_FILE, 'r') as f:
-            all_data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        all_data = {}
-    all_data[key] = {
+def save_data(redis_client, key, data):
+    """Save data under the given key to Redis with a timestamp."""
+    content = {
         'content': data,
         'timestamp': time.time()
     }
-    with open(DATA_FILE, 'w') as f:
-        json.dump(all_data, f)
+    redis_client.set(key, json.dumps(content))
 
-def load_data(key):
-    """Load data for the given key from a JSON file."""
-    if not os.path.exists(DATA_FILE):
-        return None
-    try:
-        with open(DATA_FILE, 'r') as f:
-            all_data = json.load(f)
-            return all_data.get(key)
-    except json.JSONDecodeError:
+def load_data(redis_client, key):
+    """Load data for the given key from Redis."""
+    value = redis_client.get(key)
+    if value:
+        content = json.loads(value)
+        return content['content']
+    else:
         return None
 
-def load_all_data():
-    """Load all data from the JSON file."""
-    if not os.path.exists(DATA_FILE):
-        return {}
-    try:
-        with open(DATA_FILE, 'r') as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        return {}
-
-def is_data_valid(key, max_age_seconds):
+def is_data_valid(redis_client, key, max_age_seconds):
     """Check if the data for the given key is valid (not older than max_age_seconds)."""
-    data = load_data(key)
-    if not data:
+    value = redis_client.get(key)
+    if value:
+        content = json.loads(value)
+        timestamp = content.get('timestamp', 0)
+        age = time.time() - timestamp
+        return age < max_age_seconds
+    else:
         return False
-    timestamp = data.get('timestamp', 0)
-    age = time.time() - timestamp
-    return age < max_age_seconds
+
+def load_all_data(redis_client):
+    """Load all data from Redis."""
+    keys = redis_client.keys()
+    data = {}
+    for key in keys:
+        content = load_data(redis_client, key)
+        data[key] = content
+    return data

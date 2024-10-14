@@ -2,16 +2,18 @@
 
 FROM python:3.9-slim
 
+# Set the working directory
 WORKDIR /app
 
-COPY requirements.txt ./
+# Copy requirements.txt and install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create the data directory
-RUN mkdir -p data
-
+# Copy the rest of the application code
 COPY . .
 
+# Expose the port (optional)
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "3", "app:app"]
+# Run the application with Gunicorn on port 5000
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
