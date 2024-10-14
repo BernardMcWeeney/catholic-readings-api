@@ -4,7 +4,7 @@ import os
 from flask import Flask, jsonify, abort, request, render_template, url_for
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from redis import Redis
+from redis_client import redis_client  # Import redis_client from redis_client.py
 from scraper import scrape_content, URLS
 from storage import load_data, save_data, is_data_valid
 import time
@@ -20,27 +20,22 @@ API_KEYS = {key.strip() for key in API_KEYS if key.strip()}
 if not API_KEYS:
     raise ValueError("No API keys set. Please set the 'API_KEYS' environment variable.")
 
-# Redis configuration from environment variables
+# Construct Redis URI for Limiter
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
 REDIS_HOST = os.getenv('REDIS_HOST', 'srv-captain--redis-rate-limiter')
 REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
-REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
-
-# Construct Redis URI
 if REDIS_PASSWORD:
     REDIS_URI = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/0"
 else:
     REDIS_URI = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
 
-# Initialize Redis client
-redis_client = Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, decode_responses=True)
-
 # Initialize Limiter with Redis storage
 limiter = Limiter(
+    app=app,
     key_func=get_remote_address,
     default_limits=["100 per hour"],
     storage_uri=REDIS_URI
 )
-limiter.init_app(app)
 
 # Error handler for rate limit errors
 @app.errorhandler(429)

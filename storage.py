@@ -2,9 +2,7 @@
 
 import time
 import json
-
-# The redis_client is imported from app.py to ensure the same instance is used
-from app import redis_client
+from redis_client import redis_client  # Import redis_client from redis_client.py
 
 def save_data(redis_client, key, data):
     """Save data under the given key to Redis with a timestamp."""
