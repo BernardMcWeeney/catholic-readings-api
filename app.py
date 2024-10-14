@@ -16,12 +16,12 @@ API_KEYS = {'your_api_key_here'}  # Replace 'your_api_key_here' with actual API 
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-# Initialize Limiter
+# Initialize Limiter for Flask-Limiter >= 2.0
 limiter = Limiter(
-    app,
     key_func=get_remote_address,
     default_limits=["100 per hour"]
 )
+limiter.init_app(app)
 
 # Error handler for rate limit errors
 @app.errorhandler(429)
