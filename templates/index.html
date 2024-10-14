@@ -1,0 +1,43 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Catholic Readings API Documentation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .endpoint {
+            border-bottom: 1px solid #ccc;
+            padding: 10px 0;
+        }
+        .endpoint h3 {
+            margin: 0;
+        }
+        .endpoint p {
+            margin: 5px 0;
+        }
+        code {
+            background-color: #f9f9f9;
+            padding: 2px 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Catholic Readings API</h1>
+    <p>This API provides access to various Catholic readings and content.</p>
+    <h2>Usage</h2>
+    <p>All endpoints require an API key. Include your API key as a query parameter: <code>?api_key=YOUR_API_KEY</code></p>
+    <h2>Available Endpoints</h2>
+    {% for endpoint in endpoints %}
+    <div class="endpoint">
+        <h3>{{ endpoint.description }}</h3>
+        <p><strong>URL:</strong> <code>{{ endpoint.url }}</code></p>
+        <p><strong>Example Request:</strong> <code>{{ endpoint.example_request }}</code></p>
+    </div>
+    {% endfor %}
+    <h2>Note</h2>
+    <p>Content is refreshed if it is older than 1 day.</p>
+</body>
+</html>

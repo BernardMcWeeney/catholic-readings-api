@@ -1,8 +1,6 @@
 # scraper.py
 import requests
 from bs4 import BeautifulSoup
-from storage import save_data
-import argparse
 
 URLS = {
     'daily_readings': {
@@ -32,10 +30,10 @@ URLS = {
 }
 
 def scrape_content(key):
-    """Scrape content for a given key."""
+    """Scrape content for a given key and return it."""
     if key not in URLS:
         print(f"Invalid key '{key}'. Valid keys are: {', '.join(URLS.keys())}")
-        return
+        return None
 
     item = URLS[key]
     url = item['url']
@@ -50,21 +48,30 @@ def scrape_content(key):
     else:
         content = 'No content found.'
 
-    save_data(key, {'content': content})
-    print(f"Saved content under key '{key}'")
+    return content
 
 def scrape_all():
     """Scrape all URLs and save their content."""
+    from storage import save_data
     for key in URLS.keys():
-        scrape_content(key)
+        content = scrape_content(key)
+        if content:
+            save_data(key, content)
+            print(f"Saved content under key '{key}'")
 
 if __name__ == '__main__':
+    import argparse
+
     parser = argparse.ArgumentParser(description='Scrape content from CatholicIreland.net')
     parser.add_argument('keys', nargs='*', help='Keys to scrape. If none provided, all will be scraped.')
     args = parser.parse_args()
 
     if args.keys:
+        from storage import save_data
         for key in args.keys:
-            scrape_content(key)
+            content = scrape_content(key)
+            if content:
+                save_data(key, content)
+                print(f"Saved content under key '{key}'")
     else:
         scrape_all()
