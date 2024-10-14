@@ -1,4 +1,8 @@
 {
-  "schemaVersion": 2,
-  "dockerfilePath": "./Dockerfile"
-}
+    "schemaVersion": 2,
+    "dockerfilePath": "./Dockerfile",
+    "dockerComposeFilePath": "",
+    "buildArgs": {
+      "NODE_ENV": "production"
+    }
+  }
