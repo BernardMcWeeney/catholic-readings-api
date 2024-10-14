@@ -21,7 +21,7 @@ if not API_KEYS:
     raise ValueError("No API keys set. Please set the 'API_KEYS' environment variable.")
 
 # Redis configuration from environment variables
-REDIS_HOST = os.getenv('REDIS_HOST', 'redis-rate-limiter')
+REDIS_HOST = os.getenv('REDIS_HOST', 'srv-captain--redis-rate-limiter')
 REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
 REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
 
