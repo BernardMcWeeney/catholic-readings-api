@@ -3,6 +3,7 @@
 import requests
 from bs4 import BeautifulSoup, Comment
 import re
+import logging
 
 URLS = {
     'daily_readings': {
@@ -66,7 +67,7 @@ def scrape_content(key):
 
 def scrape_mass_reading_details():
     """Scrape mass reading details from the specified URL."""
-    url = 'https://www.universalis.com/europe.ireland/0/mass.htm'
+    url = 'https://www.universalis.com/europe.ireland/mass.htm'
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
