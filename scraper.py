@@ -64,6 +64,30 @@ def scrape_content(key):
     else:
         return 'No content found.'
 
+def scrape_mass_reading_details():
+    """Scrape mass reading details from the specified URL."""
+    url = 'https://www.universalis.com/europe.ireland/0/mass.htm'
+    response = requests.get(url)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.content, 'html.parser')
+    
+    readings = {
+        'first_reading': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(1) > tr > th:nth-child(2)'),
+        'psalm': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(2) > tr:nth-child(2) > th'),
+        'second_reading': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(3) > tr > th:nth-child(2)'),
+        'gospel_acclamation': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(4) > tr > th:nth-child(2)'),
+        'gospel': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(6) > tr > th:nth-child(2)')
+    }
+    
+    result = {}
+    for key, element in readings.items():
+        if element:
+            result[key] = element.text.strip()
+        else:
+            result[key] = None
+    
+    return result
+
 def scrape_all():
     """Scrape all URLs and save their content."""
     from storage import save_data

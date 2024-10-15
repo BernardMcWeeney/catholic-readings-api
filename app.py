@@ -4,15 +4,15 @@ import os
 from flask import Flask, jsonify, abort, request, render_template, url_for
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from redis_client import redis_client  # Import redis_client from redis_client.py
-from scraper import scrape_content, URLS
+from redis_client import redis_client
+from scraper import scrape_content, URLS, scrape_mass_reading_details
 from storage import load_data, save_data, is_data_valid
 import time
 
 app = Flask(__name__)
 
 # Maximum age for data in seconds (e.g., 1 day)
-MAX_DATA_AGE = 24 * 60 * 60  # 1 day
+MAX_DATA_AGE = 12 * 60 * 60  # 12 hours
 
 # Load API keys from environment variable
 API_KEYS = set(os.getenv('API_KEYS', '').split(','))
@@ -56,6 +56,14 @@ def api_documentation():
         }
         endpoints.append(endpoint)
     
+    # Add mass_reading_details endpoint
+    endpoints.append({
+        'key': 'mass_reading_details',
+        'url': url_for('get_mass_reading_details', _external=True),
+        'description': 'Get the mass reading details.',
+        'example_request': f'GET {url_for("get_mass_reading_details", _external=True)}?api_key=YOUR_API_KEY',
+    })
+    
     return render_template('index.html', endpoints=endpoints)
 
 @app.route('/api/v1/content', methods=['GET'])
@@ -66,7 +74,7 @@ def get_content_keys():
     if not api_key or api_key not in API_KEYS:
         abort(401, description="Unauthorized: Valid API key required.")
     
-    keys = list(URLS.keys())
+    keys = list(URLS.keys()) + ['mass_reading_details']
     return jsonify({'keys': keys}), 200
 
 @app.route('/api/v1/content/<string:key>', methods=['GET'])
@@ -78,8 +86,12 @@ def get_content(key):
         abort(401, description="Unauthorized: Valid API key required.")
     
     # Check if the key is valid
-    if key not in URLS:
+    if key not in URLS and key != 'mass_reading_details':
         abort(404, description=f"Invalid key '{key}'. Use /api/v1/content to see available keys.")
+    
+    # Handle mass_reading_details separately
+    if key == 'mass_reading_details':
+        return get_mass_reading_details()
     
     # Check if the data is valid
     if not is_data_valid(redis_client, key, MAX_DATA_AGE):
@@ -91,6 +103,27 @@ def get_content(key):
             abort(500, description=f"Failed to scrape content for key '{key}'")
     else:
         content = load_data(redis_client, key)
+    
+    return jsonify({'content': content}), 200
+
+@app.route('/api/v1/mass_reading_details', methods=['GET'])
+@limiter.limit("50 per hour")
+def get_mass_reading_details():
+    """Get the mass reading details."""
+    api_key = request.args.get('api_key')
+    if not api_key or api_key not in API_KEYS:
+        abort(401, description="Unauthorized: Valid API key required.")
+    
+    # Check if the data is valid
+    if not is_data_valid(redis_client, 'mass_reading_details', MAX_DATA_AGE):
+        # Data is missing or outdated; trigger scraping
+        content = scrape_mass_reading_details()
+        if content:
+            save_data(redis_client, 'mass_reading_details', content)
+        else:
+            abort(500, description="Failed to scrape mass reading details")
+    else:
+        content = load_data(redis_client, 'mass_reading_details')
     
     return jsonify({'content': content}), 200
 
