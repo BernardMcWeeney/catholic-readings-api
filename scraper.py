@@ -75,30 +75,37 @@ def scrape_mass_reading_details():
         return None
 
     soup = BeautifulSoup(response.content, 'html.parser')
-    
-    readings = {}
-    reading_fields = [
-        ('first_reading', 'First Reading'),
-        ('psalm', 'Psalm'),
-        ('second_reading', 'Second Reading'),
-        ('gospel_acclamation', 'Gospel Acclamation'),
-        ('gospel', 'Gospel')
-    ]
 
-    for key, field_name in reading_fields:
-        try:
-            # Find the <th> element containing the field name (case-insensitive)
-            th = soup.find('th', text=re.compile(field_name, re.I))
-            if th:
-                # Assuming the desired content is in the next <td> sibling
-                td = th.find_next_sibling('td')
-                if td:
-                    readings[key] = td.get_text(strip=True)
+    readings = {}
+    reading_fields_map = {
+        'first_reading': 'First reading',
+        'psalm': 'Responsorial Psalm',
+        'second_reading': 'Second reading',
+        'gospel_acclamation': 'Gospel Acclamation',
+        'gospel': 'Gospel'
+    }
+
+    for key, field_label in reading_fields_map.items():
+        # Find the <th> element containing the field label (case-insensitive)
+        th = soup.find('th', text=re.compile(field_label, re.I))
+        if th:
+            # Attempt to find the next <th> with align='right' in the same row
+            sibling_th = th.find_next_sibling('th', align='right')
+            if sibling_th:
+                readings[key] = sibling_th.get_text(strip=True)
+            else:
+                # If not found, look in the next row within the same table
+                parent_tr = th.find_parent('tr')
+                next_tr = parent_tr.find_next_sibling('tr') if parent_tr else None
+                if next_tr:
+                    right_th = next_tr.find('th', align='right')
+                    if right_th:
+                        readings[key] = right_th.get_text(strip=True)
+                    else:
+                        readings[key] = None
                 else:
                     readings[key] = None
-            else:
-                readings[key] = None
-        except Exception:
+        else:
             readings[key] = None
 
     return readings
