@@ -12,7 +12,8 @@ import time
 app = Flask(__name__)
 
 # Maximum age for data in seconds (e.g., 1 day)
-MAX_DATA_AGE = 12 * 60 * 60  # 12 hours
+#MAX_DATA_AGE = 12 * 60 * 60  # 12 hours
+MAX_DATA_AGE = 12
 
 # Load API keys from environment variable
 API_KEYS = set(os.getenv('API_KEYS', '').split(','))

@@ -67,26 +67,53 @@ def scrape_content(key):
 def scrape_mass_reading_details():
     """Scrape mass reading details from the specified URL."""
     url = 'https://www.universalis.com/europe.ireland/0/mass.htm'
-    response = requests.get(url)
-    response.raise_for_status()
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logging.error(f"Error fetching {url}: {e}")
+        return None
+
     soup = BeautifulSoup(response.content, 'html.parser')
     
-    readings = {
-        'first_reading': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(1) > tr > th:nth-child(2)'),
-        'psalm': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(2) > tr:nth-child(2) > th'),
-        'second_reading': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(3) > tr > th:nth-child(2)'),
-        'gospel_acclamation': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(4) > tr > th:nth-child(2)'),
-        'gospel': soup.select_one('body > div:nth-child(2) > div:nth-child(2) > div > table:nth-child(6) > tr > th:nth-child(2)')
-    }
-    
-    result = {}
-    for key, element in readings.items():
-        if element:
-            result[key] = element.text.strip()
-        else:
-            result[key] = None
-    
-    return result
+    # Initialize a dictionary to hold the readings
+    readings = {}
+
+    # Example: Updated selectors based on the current HTML structure
+    # Note: You need to inspect the actual webpage to get the correct selectors
+
+    try:
+        readings['first_reading'] = soup.find('th', text=re.compile(r'First Reading', re.I)).find_next_sibling('th').get_text(strip=True)
+    except AttributeError:
+        readings['first_reading'] = None
+        logging.warning("First Reading not found.")
+
+    try:
+        readings['psalm'] = soup.find('th', text=re.compile(r'Responsorial Psalm', re.I)).find_next_sibling('th').get_text(strip=True)
+    except AttributeError:
+        readings['psalm'] = None
+        logging.warning("Psalm not found.")
+
+    try:
+        readings['second_reading'] = soup.find('th', text=re.compile(r'Second Reading', re.I)).find_next_sibling('th').get_text(strip=True)
+    except AttributeError:
+        readings['second_reading'] = None
+        logging.warning("Second Reading not found.")
+
+    try:
+        readings['gospel_acclamation'] = soup.find('th', text=re.compile(r'Gospel Acclamation', re.I)).find_next_sibling('th').get_text(strip=True)
+    except AttributeError:
+        readings['gospel_acclamation'] = None
+        logging.warning("Gospel Acclamation not found.")
+
+    try:
+        readings['gospel'] = soup.find('th', text=re.compile(r'Gospel', re.I)).find_next_sibling('th').get_text(strip=True)
+    except AttributeError:
+        readings['gospel'] = None
+        logging.warning("Gospel not found.")
+
+    return readings
+
 
 def scrape_all():
     """Scrape all URLs and save their content."""
