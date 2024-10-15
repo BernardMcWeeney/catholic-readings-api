@@ -68,49 +68,43 @@ def scrape_mass_reading_details():
     """Scrape mass reading details from the specified URL."""
     url = 'https://www.universalis.com/europe.ireland/0/mass.htm'
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
+        logging.info(f"Successfully fetched {url}")
     except requests.RequestException as e:
         logging.error(f"Error fetching {url}: {e}")
         return None
 
     soup = BeautifulSoup(response.content, 'html.parser')
     
-    # Initialize a dictionary to hold the readings
     readings = {}
+    reading_fields = [
+        ('first_reading', 'First Reading'),
+        ('psalm', 'Psalm'),
+        ('second_reading', 'Second Reading'),
+        ('gospel_acclamation', 'Gospel Acclamation'),
+        ('gospel', 'Gospel')
+    ]
 
-    # Example: Updated selectors based on the current HTML structure
-    # Note: You need to inspect the actual webpage to get the correct selectors
-
-    try:
-        readings['first_reading'] = soup.find('th', text=re.compile(r'First Reading', re.I)).find_next_sibling('th').get_text(strip=True)
-    except AttributeError:
-        readings['first_reading'] = None
-        logging.warning("First Reading not found.")
-
-    try:
-        readings['psalm'] = soup.find('th', text=re.compile(r'Responsorial Psalm', re.I)).find_next_sibling('th').get_text(strip=True)
-    except AttributeError:
-        readings['psalm'] = None
-        logging.warning("Psalm not found.")
-
-    try:
-        readings['second_reading'] = soup.find('th', text=re.compile(r'Second Reading', re.I)).find_next_sibling('th').get_text(strip=True)
-    except AttributeError:
-        readings['second_reading'] = None
-        logging.warning("Second Reading not found.")
-
-    try:
-        readings['gospel_acclamation'] = soup.find('th', text=re.compile(r'Gospel Acclamation', re.I)).find_next_sibling('th').get_text(strip=True)
-    except AttributeError:
-        readings['gospel_acclamation'] = None
-        logging.warning("Gospel Acclamation not found.")
-
-    try:
-        readings['gospel'] = soup.find('th', text=re.compile(r'Gospel', re.I)).find_next_sibling('th').get_text(strip=True)
-    except AttributeError:
-        readings['gospel'] = None
-        logging.warning("Gospel not found.")
+    for key, field_name in reading_fields:
+        try:
+            # Find the <th> with the specific field name
+            th = soup.find('th', text=re.compile(field_name, re.I))
+            if th:
+                # Assuming the desired content is in the next <td>
+                td = th.find_next_sibling('td')
+                if td:
+                    readings[key] = td.get_text(strip=True)
+                    logging.info(f"Successfully scraped {field_name}: {readings[key]}")
+                else:
+                    readings[key] = None
+                    logging.warning(f"Sibling <td> not found for {field_name}.")
+            else:
+                readings[key] = None
+                logging.warning(f"<th> with text '{field_name}' not found.")
+        except Exception as e:
+            readings[key] = None
+            logging.error(f"Error scraping {field_name}: {e}")
 
     return readings
 
