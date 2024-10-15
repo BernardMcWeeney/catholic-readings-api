@@ -3,7 +3,6 @@
 import requests
 from bs4 import BeautifulSoup, Comment
 import re
-import logging
 
 URLS = {
     'daily_readings': {
@@ -65,15 +64,14 @@ def scrape_content(key):
     else:
         return 'No content found.'
 
+
 def scrape_mass_reading_details():
     """Scrape mass reading details from the specified URL."""
     url = 'https://www.universalis.com/europe.ireland/mass.htm'
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        logging.info(f"Successfully fetched {url}")
-    except requests.RequestException as e:
-        logging.error(f"Error fetching {url}: {e}")
+    except requests.RequestException:
         return None
 
     soup = BeautifulSoup(response.content, 'html.parser')
@@ -89,26 +87,21 @@ def scrape_mass_reading_details():
 
     for key, field_name in reading_fields:
         try:
-            # Find the <th> with the specific field name
+            # Find the <th> element containing the field name (case-insensitive)
             th = soup.find('th', text=re.compile(field_name, re.I))
             if th:
-                # Assuming the desired content is in the next <td>
+                # Assuming the desired content is in the next <td> sibling
                 td = th.find_next_sibling('td')
                 if td:
                     readings[key] = td.get_text(strip=True)
-                    logging.info(f"Successfully scraped {field_name}: {readings[key]}")
                 else:
                     readings[key] = None
-                    logging.warning(f"Sibling <td> not found for {field_name}.")
             else:
                 readings[key] = None
-                logging.warning(f"<th> with text '{field_name}' not found.")
-        except Exception as e:
+        except Exception:
             readings[key] = None
-            logging.error(f"Error scraping {field_name}: {e}")
 
     return readings
-
 
 def scrape_all():
     """Scrape all URLs and save their content."""
