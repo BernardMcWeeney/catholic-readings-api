@@ -67,7 +67,7 @@ def scrape_content(key):
 
 def scrape_mass_reading_details():
     """Scrape mass reading details from the specified URL."""
-    url = 'https://www.universalis.com/europe.ireland/mass.htm'
+    url = 'https://www.universalis.com/europe.ireland/0/mass.htm'
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
@@ -86,8 +86,8 @@ def scrape_mass_reading_details():
     }
 
     for key, field_label in reading_fields_map.items():
-        # Find the <th> element containing the field label (case-insensitive)
-        th = soup.find('th', text=re.compile(field_label, re.I))
+        # Find the <th> element containing the field label (exact match, case-insensitive)
+        th = soup.find('th', text=re.compile(f'^{re.escape(field_label)}$', re.I))
         if th:
             # Attempt to find the next <th> with align='right' in the same row
             sibling_th = th.find_next_sibling('th', align='right')
