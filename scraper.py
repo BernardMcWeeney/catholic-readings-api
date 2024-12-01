@@ -29,11 +29,11 @@ URLS = {
     },
 }
 
-def transform_images(soup):
+def transform_images(content_div):
     """Transform image tags into WordPress block format."""
-    for img in soup.find_all('img'):
-        # Create new figure element
-        figure = soup.new_tag('figure', attrs={
+    for img in content_div.find_all('img'):
+        # Create new figure element with the same parser as content_div
+        figure = content_div.new_tag('figure', attrs={
             'class': 'wp-block-image aligncenter size-full is-resized'
         })
         
@@ -55,36 +55,39 @@ def transform_images(soup):
         img['sizes'] = "(max-width: 1120px) 100vw, 1120px"
         
         # Wrap img in figure
+        parent = img.parent
         img.wrap(figure)
 
-def clean_sunday_homily(soup):
+def clean_sunday_homily(content_div):
     """Clean Sunday Homily specific content."""
     # Remove the "Sunday Homily" header
-    header = soup.find('h2', class_='inner_title')
-    if header and header.string and 'Sunday Homily' in header.string:
-        header.decompose()
-    
-    # Transform post title links into plain titles
-    title = soup.find('h1', class_='title')
-    if title and title.find('a'):
-        link = title.find('a')
-        new_title = soup.new_tag('h1')
-        new_title.string = link.string
-        title.replace_with(new_title)
-
-def clean_saint_of_day(soup):
-    """Clean Saint of the Day specific content."""
-    # Remove the "Saint of the day" header
-    header = soup.find('h1', string='Saint of the day')
+    header = content_div.find('h2', class_='inner_title')
     if header:
         header.decompose()
     
     # Transform post title links into plain titles
-    title = soup.find('h1', class_='title')
+    title = content_div.find('h1', class_='title')
     if title and title.find('a'):
         link = title.find('a')
-        new_title = soup.new_tag('h1')
-        new_title.string = link.string
+        title_text = link.string
+        new_title = content_div.new_tag('h1')
+        new_title.string = title_text
+        title.replace_with(new_title)
+
+def clean_saint_of_day(content_div):
+    """Clean Saint of the Day specific content."""
+    # Remove the "Saint of the day" header
+    header = content_div.find('h1', string='Saint of the day')
+    if header:
+        header.decompose()
+    
+    # Transform post title links into plain titles
+    title = content_div.find('h1', class_='title')
+    if title and title.find('a'):
+        link = title.find('a')
+        title_text = link.string
+        new_title = content_div.new_tag('h1')
+        new_title.string = title_text
         title.replace_with(new_title)
 
 def scrape_content(key):
@@ -98,40 +101,41 @@ def scrape_content(key):
     css_selector = item['css_selector']
 
     print(f"Scraping {url}...")
-    response = requests.get(url)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.content, 'html.parser')
-    content_div = soup.select_one(css_selector)
-    
-    if content_div:
-        # Remove unwanted elements
-        for element in content_div(['script', 'style', 'iframe', 'noscript']):
-            element.decompose()
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
+        content_div = soup.select_one(css_selector)
         
-        # Remove comments
-        for comment in content_div.find_all(string=lambda text: isinstance(text, Comment)):
-            comment.extract()
-        
-        # Apply specific cleaning based on content type
-        if key == 'sunday_homily':
-            clean_sunday_homily(content_div)
-        elif key == 'saint_of_the_day':
-            clean_saint_of_day(content_div)
-        
-        # Transform images
-        transform_images(content_div)
-        
-        # Remove mentions of 'Catholic Ireland'
-        text = str(content_div)
-        text = re.sub(r'(?i)catholic ireland', '', text)
-        
-        # Parse the cleaned text back into BeautifulSoup
-        cleaned_soup = BeautifulSoup(text, 'html.parser')
-        # Return the cleaned HTML content
-        cleaned_html = cleaned_soup.prettify()
-        return cleaned_html
-    else:
-        return 'No content found.'
+        if content_div:
+            # Remove unwanted elements
+            for element in content_div(['script', 'style', 'iframe', 'noscript']):
+                element.decompose()
+            
+            # Remove comments
+            for comment in content_div.find_all(string=lambda text: isinstance(text, Comment)):
+                comment.extract()
+            
+            # Apply specific cleaning based on content type
+            if key == 'sunday_homily':
+                clean_sunday_homily(content_div)
+            elif key == 'saint_of_the_day':
+                clean_saint_of_day(content_div)
+            
+            # Transform images
+            transform_images(content_div)
+            
+            # Remove mentions of 'Catholic Ireland'
+            text = str(content_div)
+            text = re.sub(r'(?i)catholic ireland', '', text)
+            
+            # Return the cleaned HTML content
+            return text
+        else:
+            return 'No content found.'
+    except requests.RequestException as e:
+        print(f"Error fetching content: {e}")
+        return None
 
 def scrape_mass_reading_details():
     """Scrape mass reading details from the specified URL."""
@@ -139,7 +143,8 @@ def scrape_mass_reading_details():
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-    except requests.RequestException:
+    except requests.RequestException as e:
+        print(f"Error fetching mass reading details: {e}")
         return None
 
     soup = BeautifulSoup(response.content, 'html.parser')
