@@ -29,37 +29,14 @@ URLS = {
     },
 }
 
-def transform_images(content_div):
-    """Transform image tags into WordPress block format."""
-    for img in content_div.find_all('img'):
-        # Create new figure element with the same parser as content_div
-        figure = content_div.new_tag('figure', attrs={
-            'class': 'wp-block-image aligncenter size-full is-resized'
-        })
-        
-        # Update image attributes
-        img['decoding'] = 'async'
-        if not img.get('width'):
-            img['width'] = '1120'
-        if not img.get('height'):
-            img['height'] = '653'
-        
-        # Add WordPress-specific classes and attributes
-        img['class'] = 'wp-image-117'
-        img['style'] = 'aspect-ratio:1.5;object-fit:contain;width:335px;height:auto'
-        
-        # Generate srcset (placeholder values since we can't generate actual resized images)
-        src = img['src']
-        base_url = re.sub(r'\.[^.]+$', '', src)
-        img['srcset'] = f"{src} 1120w, {base_url}-300x175.jpg 300w, {base_url}-1024x597.jpg 1024w, {base_url}-768x448.jpg 768w, {base_url}-200x117.jpg 200w"
-        img['sizes'] = "(max-width: 1120px) 100vw, 1120px"
-        
-        # Wrap img in figure
-        parent = img.parent
-        img.wrap(figure)
-
 def clean_sunday_homily(content_div):
     """Clean Sunday Homily specific content."""
+    if not content_div:
+        return
+
+    # Create a new BeautifulSoup object with the same parser
+    soup = BeautifulSoup("", "html.parser")
+    
     # Remove the "Sunday Homily" header
     header = content_div.find('h2', class_='inner_title')
     if header:
@@ -69,13 +46,19 @@ def clean_sunday_homily(content_div):
     title = content_div.find('h1', class_='title')
     if title and title.find('a'):
         link = title.find('a')
-        title_text = link.string
-        new_title = content_div.new_tag('h1')
+        title_text = link.get_text(strip=True)
+        new_title = soup.new_tag('h1')
         new_title.string = title_text
         title.replace_with(new_title)
 
 def clean_saint_of_day(content_div):
     """Clean Saint of the Day specific content."""
+    if not content_div:
+        return
+
+    # Create a new BeautifulSoup object with the same parser
+    soup = BeautifulSoup("", "html.parser")
+    
     # Remove the "Saint of the day" header
     header = content_div.find('h1', string='Saint of the day')
     if header:
@@ -85,10 +68,50 @@ def clean_saint_of_day(content_div):
     title = content_div.find('h1', class_='title')
     if title and title.find('a'):
         link = title.find('a')
-        title_text = link.string
-        new_title = content_div.new_tag('h1')
+        title_text = link.get_text(strip=True)
+        new_title = soup.new_tag('h1')
         new_title.string = title_text
         title.replace_with(new_title)
+
+def transform_images(content_div):
+    """Transform image tags into WordPress block format."""
+    if not content_div:
+        return
+        
+    # Create a new BeautifulSoup object with the same parser
+    soup = BeautifulSoup("", "html.parser")
+    
+    for img in content_div.find_all('img'):
+        try:
+            # Create new figure element
+            figure = soup.new_tag('figure', attrs={
+                'class': 'wp-block-image aligncenter size-full is-resized'
+            })
+            
+            # Update image attributes
+            img['decoding'] = 'async'
+            if not img.get('width'):
+                img['width'] = '1120'
+            if not img.get('height'):
+                img['height'] = '653'
+            
+            # Add WordPress-specific classes and attributes
+            img['class'] = 'wp-image-117'
+            img['style'] = 'aspect-ratio:1.5;object-fit:contain;width:335px;height:auto'
+            
+            # Generate srcset (placeholder values since we can't generate actual resized images)
+            src = img.get('src', '')
+            if src:
+                base_url = re.sub(r'\.[^.]+$', '', src)
+                img['srcset'] = f"{src} 1120w, {base_url}-300x175.jpg 300w, {base_url}-1024x597.jpg 1024w, {base_url}-768x448.jpg 768w, {base_url}-200x117.jpg 200w"
+                img['sizes'] = "(max-width: 1120px) 100vw, 1120px"
+            
+            # Wrap img in figure
+            if img.parent:
+                img.wrap(figure)
+        except Exception as e:
+            print(f"Error transforming image: {e}")
+            continue
 
 def scrape_content(key):
     """Scrape content for a given key and return cleaned HTML content."""
@@ -108,6 +131,10 @@ def scrape_content(key):
         content_div = soup.select_one(css_selector)
         
         if content_div:
+            # Create a new BeautifulSoup object for the content
+            new_soup = BeautifulSoup(str(content_div), 'html.parser')
+            content_div = new_soup.div
+            
             # Remove unwanted elements
             for element in content_div(['script', 'style', 'iframe', 'noscript']):
                 element.decompose()
@@ -129,7 +156,6 @@ def scrape_content(key):
             text = str(content_div)
             text = re.sub(r'(?i)catholic ireland', '', text)
             
-            # Return the cleaned HTML content
             return text
         else:
             return 'No content found.'
