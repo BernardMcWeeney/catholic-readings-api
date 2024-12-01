@@ -1,5 +1,3 @@
-# scraper.py
-
 import requests
 from bs4 import BeautifulSoup, Comment
 import re
@@ -31,6 +29,64 @@ URLS = {
     },
 }
 
+def transform_images(soup):
+    """Transform image tags into WordPress block format."""
+    for img in soup.find_all('img'):
+        # Create new figure element
+        figure = soup.new_tag('figure', attrs={
+            'class': 'wp-block-image aligncenter size-full is-resized'
+        })
+        
+        # Update image attributes
+        img['decoding'] = 'async'
+        if not img.get('width'):
+            img['width'] = '1120'
+        if not img.get('height'):
+            img['height'] = '653'
+        
+        # Add WordPress-specific classes and attributes
+        img['class'] = 'wp-image-117'
+        img['style'] = 'aspect-ratio:1.5;object-fit:contain;width:335px;height:auto'
+        
+        # Generate srcset (placeholder values since we can't generate actual resized images)
+        src = img['src']
+        base_url = re.sub(r'\.[^.]+$', '', src)
+        img['srcset'] = f"{src} 1120w, {base_url}-300x175.jpg 300w, {base_url}-1024x597.jpg 1024w, {base_url}-768x448.jpg 768w, {base_url}-200x117.jpg 200w"
+        img['sizes'] = "(max-width: 1120px) 100vw, 1120px"
+        
+        # Wrap img in figure
+        img.wrap(figure)
+
+def clean_sunday_homily(soup):
+    """Clean Sunday Homily specific content."""
+    # Remove the "Sunday Homily" header
+    header = soup.find('h2', class_='inner_title')
+    if header and header.string and 'Sunday Homily' in header.string:
+        header.decompose()
+    
+    # Transform post title links into plain titles
+    title = soup.find('h1', class_='title')
+    if title and title.find('a'):
+        link = title.find('a')
+        new_title = soup.new_tag('h1')
+        new_title.string = link.string
+        title.replace_with(new_title)
+
+def clean_saint_of_day(soup):
+    """Clean Saint of the Day specific content."""
+    # Remove the "Saint of the day" header
+    header = soup.find('h1', string='Saint of the day')
+    if header:
+        header.decompose()
+    
+    # Transform post title links into plain titles
+    title = soup.find('h1', class_='title')
+    if title and title.find('a'):
+        link = title.find('a')
+        new_title = soup.new_tag('h1')
+        new_title.string = link.string
+        title.replace_with(new_title)
+
 def scrape_content(key):
     """Scrape content for a given key and return cleaned HTML content."""
     if key not in URLS:
@@ -46,16 +102,29 @@ def scrape_content(key):
     response.raise_for_status()
     soup = BeautifulSoup(response.content, 'html.parser')
     content_div = soup.select_one(css_selector)
+    
     if content_div:
         # Remove unwanted elements
         for element in content_div(['script', 'style', 'iframe', 'noscript']):
             element.decompose()
+        
         # Remove comments
         for comment in content_div.find_all(string=lambda text: isinstance(text, Comment)):
             comment.extract()
+        
+        # Apply specific cleaning based on content type
+        if key == 'sunday_homily':
+            clean_sunday_homily(content_div)
+        elif key == 'saint_of_the_day':
+            clean_saint_of_day(content_div)
+        
+        # Transform images
+        transform_images(content_div)
+        
         # Remove mentions of 'Catholic Ireland'
         text = str(content_div)
         text = re.sub(r'(?i)catholic ireland', '', text)
+        
         # Parse the cleaned text back into BeautifulSoup
         cleaned_soup = BeautifulSoup(text, 'html.parser')
         # Return the cleaned HTML content
@@ -63,7 +132,6 @@ def scrape_content(key):
         return cleaned_html
     else:
         return 'No content found.'
-
 
 def scrape_mass_reading_details():
     """Scrape mass reading details from the specified URL."""
@@ -86,15 +154,12 @@ def scrape_mass_reading_details():
     }
 
     for key, field_label in reading_fields_map.items():
-        # Find the <th> element containing the field label (exact match, case-insensitive)
         th = soup.find('th', text=re.compile(f'^{re.escape(field_label)}$', re.I))
         if th:
-            # Attempt to find the next <th> with align='right' in the same row
             sibling_th = th.find_next_sibling('th', align='right')
             if sibling_th:
                 readings[key] = sibling_th.get_text(strip=True)
             else:
-                # If not found, look in the next row within the same table
                 parent_tr = th.find_parent('tr')
                 next_tr = parent_tr.find_next_sibling('tr') if parent_tr else None
                 if next_tr:
