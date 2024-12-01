@@ -60,16 +60,21 @@ def clean_saint_of_day(content_div):
     soup = BeautifulSoup("", "html.parser")
     
     # Remove the "Saint of the day" header
-    header = content_div.find('h1', string='Saint of the day')
+    header = content_div.find('h2', class_='inner_title')
     if header:
         header.decompose()
     
-    # Transform post title links into plain titles
-    title = content_div.find('h1', class_='title')
+    # First check for h2 with class title (current format)
+    title = content_div.find('h2', class_='title')
+    if not title:
+        # If not found, try h1 with class title (alternate format)
+        title = content_div.find('h1', class_='title')
+    
     if title and title.find('a'):
         link = title.find('a')
         title_text = link.get_text(strip=True)
-        new_title = soup.new_tag('h1')
+        # Use the same tag type as the original (h1 or h2)
+        new_title = soup.new_tag(title.name)
         new_title.string = title_text
         title.replace_with(new_title)
 
