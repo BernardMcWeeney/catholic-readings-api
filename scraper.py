@@ -77,18 +77,6 @@ def clean_saint_of_day(content_div):
         new_title = soup.new_tag(title.name)
         new_title.string = title_text
         title.replace_with(new_title)
-    
-    # Remove the archive link section
-    archive_link = content_div.find('span', class_='more')
-    if archive_link:
-        parent_div = archive_link.find_parent('div')
-        if parent_div:
-            parent_div.decompose()
-    
-    # Remove the horizontal rule before the archive section
-    hr = content_div.find('hr', class_='softd-sep')
-    if hr:
-        hr.decompose()
 
 def transform_images(content_div):
     """Transform image tags into WordPress block format."""
@@ -165,6 +153,15 @@ def scrape_content(key):
                 clean_sunday_homily(content_div)
             elif key == 'saint_of_the_day':
                 clean_saint_of_day(content_div)
+                
+                # Find and remove the div containing 'Our Archive of Saints'
+                for div in content_div.find_all('div'):
+                    if div.find('span', class_='more'):
+                        div.decompose()
+                
+                # Remove the horizontal rule
+                for hr in content_div.find_all('hr', class_='softd-sep'):
+                    hr.decompose()
             
             # Transform images
             transform_images(content_div)
